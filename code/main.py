@@ -360,7 +360,7 @@ def check_level(score): # 更新当前关卡
     global level_now
 
     len1=len(level_score)
-    for i in range(len1-1,0,-1):
+    for i in range(len1-1,-1,-1): # 
         if score>=level_score[i]:
             level_now = i+2
             fps = level_fps[level_now]
@@ -582,7 +582,6 @@ def game_loop():
             check_and_clear()
 
     win.after(fps, game_loop)
-
 
 
 def main():
