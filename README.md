@@ -14,8 +14,8 @@
 ## 参考项目
 [BigShuang.俄罗斯方块](https://github.com/BigShuang/Tetris)
 
-## 运行截屏
-![image](pic/pic1.png)
 
+## 运行截屏
+<img src="pic/pic1.png" width="30%"> <img src="pic/score2082.png" width="33%">
 
 
