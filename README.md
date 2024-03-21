@@ -16,6 +16,6 @@
 
 
 ## 运行截屏
-<img src="pic/pic1.png" width="30%"> <img src="pic/score2082.png" width="33%">
+<img src="pic/pic1.png" width="31%"> <img src="pic/pic2-score2082.png" width="30%">
 
 
