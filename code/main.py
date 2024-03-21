@@ -3,30 +3,28 @@ from tkinter import messagebox
 import random
 import copy
 
-# 常量和全局变量定义
+# 常量定义
 cell_size = 30
 C = 14 # 12
 R = 24 # 20
 height = R * cell_size
 width = C * cell_size
-level_now = 1 # 关卡数
 level_score = [300, 600, 900, 1200] # 进入下一关所需的得分
-fps = 800 # old 200, 刷新页面的毫秒间隔
 level_fps = [0, 800, 750, 700, 680, 660] # 每关对应的fps
 
-score = 0 # 得分
-
-win = tk.Tk()
+# 全局对象定义
+root = tk.Tk() # 开始界面
+win = tk.Tk() # 游戏界面
 canvas = tk.Canvas(win, width=width, height=height, )
-canvas.pack()
 
-current_block = None
+# 全局变量定义
+level_now = 1 # 关卡数
+score = 0 # 得分
+fps = 800 # old 200, 刷新页面的毫秒间隔
 revive_num = 1 # 复活次数
-
+current_block = None
 block_list = []
-for i in range(R):
-    i_row = ['' for j in range(C)]
-    block_list.append(i_row)
+first_game = True
 
 
 # 加入闯关机制
@@ -220,6 +218,8 @@ def draw_cell_by_cr(canvas, c, r, color="#CCCCCC", tag_kind=""):
         canvas.create_rectangle(x0, y0, x1, y1, fill=color, outline="white", width=2, tag="row-%s" % r)
     else:
         canvas.create_rectangle(x0, y0, x1, y1, fill=color, outline="white", width=2)
+
+
 
 
 # 绘制面板, 只有在第一次绘制时才绘制背景色方块
@@ -537,7 +537,7 @@ def land(event):
     if check_move(current_block, down):
         draw_block_move(canvas, current_block, down)
 
-def revive(): # 复活
+def revive(canvas): # 复活
     # print("revive!") #
     R2 = R//2
     for i in range(0, R2):
@@ -551,6 +551,7 @@ def revive(): # 复活
 def game_loop():
     win.update()
     global current_block
+    global canvas
     if current_block is None:
         new_block = generate_new_block()
         # 新生成的俄罗斯方块需要先在生成位置绘制出来
@@ -560,12 +561,17 @@ def game_loop():
             global revive_num
             if revive_num<=0:
                 messagebox.showinfo("Game Over!", "Your Score is %s" % score)
-                win.destroy()
-                return
-            else: # revive_num>=1
-                revive()
-                
+                try:
+                    win.withdraw() # 
+                except:
+                    print("ERROR when win.withdraw()") #
 
+                init()
+                return
+            
+            else: # revive_num>=1
+                revive(canvas)
+                
     else:
         if check_move(current_block, [0, 1]):
             draw_block_move(canvas, current_block, [0, 1])
@@ -584,24 +590,115 @@ def game_loop():
     win.after(fps, game_loop)
 
 
+def on_closing():
+    root.quit()  # 退出事件循环
+    root.destroy()  # 关闭窗口
+    win.quit()  # 退出事件循环
+    win.destroy()  # 关闭窗口
+
+
 def main():
-    global score
-    score = 0 # 1200 # 测试时，直接改初始score 
+    global first_game
+    if first_game: # 第一次运行
+        first_game = False
+
+        root.withdraw()
+        win.deiconify()
+
+        canvas.pack()
+        
+        check_level(score) # 更新关卡
+        draw_title() # 更新标题，标题中展示分数和关卡
+        draw_board(canvas, block_list, True)
+        canvas.focus_set() # 聚焦到canvas画板对象上
+
+        canvas.bind("<KeyPress-Left>", horizontal_move_block)
+        canvas.bind("<KeyPress-Right>", horizontal_move_block)
+        canvas.bind("<KeyPress-Up>", rotate_block)
+        canvas.bind("<KeyPress-Down>", land)
+        win.protocol("WM_DELETE_WINDOW", on_closing)
+
+        win.update()
+        win.after(fps, game_loop) # 在fps 毫秒后调用 game_loop方法
+        win.mainloop()
+
+    else: # 不是第一次运行
+        root.withdraw()
+        win.deiconify()
     
-    check_level(score) # 更新关卡
-    draw_title() # 更新标题，标题中展示分数和关卡
+        check_level(score) # 更新关卡
+        draw_title() # 更新标题，标题中展示分数和关卡
+        draw_board(canvas, block_list, True)
+        canvas.focus_set() # 聚焦到canvas画板对象上
 
-    draw_board(canvas, block_list, True)
-    canvas.focus_set() # 聚焦到canvas画板对象上
-    canvas.bind("<KeyPress-Left>", horizontal_move_block)
-    canvas.bind("<KeyPress-Right>", horizontal_move_block)
-    canvas.bind("<KeyPress-Up>", rotate_block)
-    canvas.bind("<KeyPress-Down>", land)
+        win.update()
+        win.after(fps, game_loop) # 在fps 毫秒后调用 game_loop方法
 
-    win.update()
-    win.after(fps, game_loop) # 在fps 毫秒后调用 game_loop方法
 
-    win.mainloop()
+def test_use(): # 测试用
+    global score, revive_num, fps, SHAPES1
+    # score = 0 # 1200 # 直接改初始score 
+    # revive_num = 0 # 直接改复活次数
+    # fps = 100
+    # SHAPES1 = {
+    #     "I1p6": [(0,2), (0,1), (0,0),(0,-1),(0,-2),(0,-3)], # 1*6
+    # }
+    
+
+def init(first = False):
+    global level_now, fps, score, current_block, revive_num, block_list, win, root 
+    level_now = 1 # 关卡数
+    fps = 800 # old 200, 刷新页面的毫秒间隔
+    score = 0 # 得分
+    current_block = None
+    revive_num = 1 # 复活次数
+    block_list = []
+    for i in range(R):
+        i_row = ['' for j in range(C)]
+        block_list.append(i_row)
+
+    test_use() # 测试用
+
+    if first: # 第一次初始化
+        root.title("开始界面")
+        root.protocol("WM_DELETE_WINDOW", on_closing)
+
+        # 获取屏幕的宽度和高度
+        screen_width = root.winfo_screenwidth()
+        screen_height = root.winfo_screenheight()
+
+        # 设置界面大小
+        global width
+        root_width = width
+        root_height = screen_height//3
+        root.geometry(f"{root_width}x{root_height}")
+        # print("screen_width =", screen_width) # 
+
+        # 计算按钮的位置
+        button_width = 120
+        button_height = 80
+        button_x = (root_width // 2) - (button_width // 2) 
+        button_y = (root_height // 2) - (button_height // 2) - 20 # 
+
+        button = tk.Button(root, text="开始游戏", command=main) # 创建按钮
+        button.place(x=button_x, y=button_y, width=button_width, height=button_height) # 
+        # button.pack()
+
+        try:
+            win.withdraw() # 撤回游戏界面
+        except:
+            print("ERROR when win.withdraw()") 
+        root.deiconify() # 显示开始界面
+        root.mainloop() # 启动主循环
+        
+    else: # 不是第一次初始化
+        try:
+            win.withdraw() # 撤回游戏界面
+            root.deiconify() # 显示开始界面
+        except:
+            print("Error in operating interface") 
+        
 
 if __name__ == "__main__":
-    main()
+    init(True) # 初始化
+    
