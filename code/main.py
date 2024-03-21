@@ -660,7 +660,7 @@ def init(first = False):
     test_use() # 测试用
 
     if first: # 第一次初始化
-        root.title("开始界面")
+        root.title("俄罗斯方块")
         root.protocol("WM_DELETE_WINDOW", on_closing)
 
         # 获取屏幕的宽度和高度
