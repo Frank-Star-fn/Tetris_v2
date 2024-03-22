@@ -18,6 +18,6 @@
 
 
 ## 运行截屏
-<img src="pic/pic1v2.png" width="30%"> 
+<img src="pic/pic1v3.png" width="30%"> <img src="pic/pic3-622clear.png" width="30%"> 
 
 
