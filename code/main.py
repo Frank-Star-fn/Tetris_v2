@@ -5,32 +5,40 @@ from tkinter import messagebox
 import random
 import copy
 import webbrowser
+import pyautogui
+import time
 
 # 常量定义
-cell_size = 30
+cell_size = 35 #
 C = 14 # 12
 R = 22 # 20
 height = R * cell_size + 20 # 
 width = C * cell_size
 level_score = [300, 600, 900, 1200, 1500] # 进入下一关所需的得分
 level_fps = [0, 800, 750, 700, 680, 660, 640] # 每关对应的fps
+color_bottom = "#222222" # 黑色
+color_bottom2 = "#CCCCAA" # 淡黄
 
 # 全局对象定义
-root = tk.Tk() # 开始界面
-# win = tk.Tk() # 游戏界面
-# canvas = tk.Canvas(win, width=width, height=height)
-# label = Label(win, text="这是一个标签")
-win,canvas,label = 0,0,0
+root,win,canvas,label = 0,0,0,0
 
 # 全局变量定义
+# 每局都初始化的全局变量
 level_now = 1 # 关卡数
 score = 0 # 得分
-fps = 800 # old 200, 刷新页面的毫秒间隔
+fps = 800 # 刷新页面的毫秒间隔
 revive_num = 1 # 复活次数
 current_block = None
 next_block_kind = ""
 block_list = []
 vis = []
+visold = []
+is_up_key_pressed = False
+is_paused = False
+
+# 从第二局开始，不用初始化的全局变量
+change_eng_input = False # 未切换英文输入法
+
 
 # 加入闯关机制
 # 定义各种形状
@@ -61,14 +69,14 @@ SHAPES1 = {
     "I2p3": [(0,-1), (0,0),(1,0),(1,-1),(-1,0),(-1,-1)],# 2*3
 }
 
-# 第2关, 增加方块: "BigO3p3","F"
+# 第2关, 增加方块: "O3p3","F"
 SHAPES2 = copy.deepcopy(SHAPES1)
-SHAPES2["BigO3p3"]=[(0,0),(0,1),(0,-1),(-1,0),(-1,1),(-1,-1),(1,0),(1,1),(1,-1)] # 3*3
+SHAPES2["O3p3"]=[(0,0),(0,1),(0,-1),(-1,0),(-1,1),(-1,-1),(1,0),(1,1),(1,-1)] # 3*3
 SHAPES2["F"]=[(0,2), (0,1), (0,0),(0,-1),(1,-1),(1,1)]
 
-# 第3关, 增加方块: "HugeO4p4","Add"
+# 第3关, 增加方块: "O4p4","Add"
 SHAPES3 = copy.deepcopy(SHAPES2)
-SHAPES3["HugeO4p4"]=[(0,0),(-1,-1),(0,-1),(-1,0),(-2,-2),(-2,-1),(-2,0),(-1,-2),(0,-2),
+SHAPES3["O4p4"]=[(0,0),(-1,-1),(0,-1),(-1,0),(-2,-2),(-2,-1),(-2,0),(-1,-2),(0,-2),
                (1,1),(1,0),(1,-1),(1,-2),(0,1),(-1,1),(-2,1)] # 4*4
 SHAPES3["Add"]=[(-1,0), (0,-1), (0,0), (1,0), (0,1)] # +
 
@@ -81,9 +89,9 @@ SHAPES4["H"]=[(0,0),(1,0),(-1,0),(1,-1),(1,1),(-1,-1),(-1,1)]
 SHAPES5 = copy.deepcopy(SHAPES4)
 SHAPES5["Dots4"]=[(1,1),(1,-1),(-1,-1),(-1,1)] # Hard # 注意不要有多余的逗号
 
-# 第6关, 增加方块: "GiantO5p5"
+# 第6关, 增加方块: "O5p5"
 SHAPES6 = copy.deepcopy(SHAPES5)
-SHAPES6["GiantO5p5"]=[(0,-2),(0,-1),(0,0),(0,1),(0,2),
+SHAPES6["O5p5"]=[(0,-2),(0,-1),(0,0),(0,1),(0,2),
                       (1,-2),(1,-1),(1,0),(1,1),(1,2),
                       (2,-2),(2,-1),(2,0),(2,1),(2,2),
                       (-1,-2),(-1,-1),(-1,0),(-1,1),(-1,2),
@@ -147,15 +155,15 @@ Rotate = { # 可以旋转：True, 不能旋转：False
     "BigT": True,
     "H": True,
 
-    "BigO3p3": False,
+    "O3p3": False,
     "BigAdd": False,
 
     "King": True,
     "Num5": True,
 
-    "HugeO4p4" : False,
+    "O4p4" : False,
 
-    "GiantO5p5": False,
+    "O5p5": False,
 
     "GiantO7p7": False,
 }
@@ -193,15 +201,15 @@ SHAPESCOLOR = {
     "BigT":"#CC0088", # 紫色
     "H":"#AAAA22", # 土黄色
 
-    "BigO3p3":"#004488", # 深蓝色
+    "O3p3":"#004488", # 深蓝色
     "BigAdd":"#884400", # 棕色
 
     "King":"#FFFF66", # 金色
     "Num5":"#336633", # 深绿色
 
-    "HugeO4p4" : "#AA0000", # 红色
+    "O4p4" : "#AA0000", # 红色
 
-    "GiantO5p5":"#701010", # 深红色
+    "O5p5":"#701010", # 深红色
 
     "GiantO7p7":"#500000", # 暗红色
 }
@@ -245,18 +253,21 @@ def draw_cell_by_cr(canvas, c, r, color="#CCCCCC", tag_kind=""):
         canvas.create_rectangle(x0, y0, x1, y1, fill=color, outline="white", width=2)
 
 
-def draw_bottom(canvas):
-    r = R
+# 画一块
+def draw_bottom_block(canvas, x, visx):
     y0 = height - 20
     y1 = height
-    color = "#222222" # 黑色
-    color2 = "#CCCCAA" # 
-    for i in range(0,C): 
-        if vis[i]==0:
-            canvas.create_rectangle(i*cell_size, y0, (i+1)*cell_size, y1, fill=color, outline="white", width=2)
-        else:
-            canvas.create_rectangle(i*cell_size, y0, (i+1)*cell_size, y1, fill=color2, outline="white", width=2)
+    if visx==0:
+        canvas.create_rectangle(x*cell_size, y0, (x+1)*cell_size, y1, fill=color_bottom, outline="white", width=2)
+    else:
+        canvas.create_rectangle(x*cell_size, y0, (x+1)*cell_size, y1, fill=color_bottom2, outline="white", width=2)
 
+# 画一整行
+def draw_bottom(canvas):
+    for i in range(0,C):
+        if vis[i]!=visold[i]: # 有变化
+            visold[i]=vis[i]
+            draw_bottom_block(canvas, i, vis[i])
 
 
 # 绘制面板, 只有在第一次绘制时才绘制背景色方块
@@ -304,8 +315,6 @@ def draw_cells(canvas, c, r, cell_list, color="#CCCCCC"):
             vis[ci]=1 # 更新vis
     
     
-
-
 def draw_block_move(canvas, block, direction=[0, 0]):
     """
     绘制向指定方向移动后的俄罗斯方块
@@ -329,7 +338,6 @@ def draw_block_move(canvas, block, direction=[0, 0]):
     
     if dc!=0:
         draw_bottom(canvas) # 更新底部指示条
-
 
 
 def generate_new_block():
@@ -401,7 +409,7 @@ def check_row_complete(row):
 
 def draw_label():
     global score, level_now, revive_num, next_block_kind
-    label.config(text = "得分:{} 关卡:{} 复活次数:{} 下一个:{}".format(score, level_now, revive_num, next_block_kind))
+    label.config(text = "得分{} 关卡{} 复活次数{} 下一个{}".format(score, level_now, revive_num, next_block_kind))
 
 
 def check_level(score): # 更新当前关卡
@@ -514,6 +522,8 @@ def horizontal_move_block(event):
     """
     左右水平移动俄罗斯方块
     """
+    if is_paused: # 暂停中
+        return
     direction = [0, 0]
     if event.keysym == 'Left':
         direction = [-1, 0]
@@ -528,11 +538,18 @@ def horizontal_move_block(event):
 
 
 def rotate_block(event): # 旋转
-    global current_block
+    if is_paused: # 暂停中
+        return
+    
+    global current_block, is_up_key_pressed
     if current_block is None:
         return
     if Rotate[current_block['kind']]==False: # 旋转后形状一样的方块，禁用旋转
         return
+    if is_up_key_pressed: # 正在长按上键
+        return
+        
+    is_up_key_pressed = True # 记录按下
 
     cell_list = current_block['cell_list']
     rotate_list = []
@@ -555,9 +572,14 @@ def rotate_block(event): # 旋转
         #
         draw_bottom(canvas) # 更新底部
 
-
+def on_up_key_release(event):
+    global is_up_key_pressed
+    is_up_key_pressed = False # 记录放开上键
 
 def land(event):
+    if is_paused: # 暂停中
+        return
+
     global current_block
     if current_block is None:
         return
@@ -596,6 +618,10 @@ def revive(canvas): # 复活
 
 
 def game_loop():
+    if is_paused: # 暂停中
+        win.after(fps, game_loop) # 
+        return  
+    
     win.update()
     global current_block, canvas
     if current_block is None:
@@ -637,28 +663,43 @@ def game_loop():
 
     win.after(fps, game_loop)
 
+def switch_input(): # 模拟按下Shift键+Alt键来切换输入法
+    pyautogui.keyDown('shift')
+    pyautogui.press('alt')
+    pyautogui.keyUp('shift')
+
 def closing_root():
     root.quit()  # 退出事件循环
     root.destroy()  # 关闭窗口
+    if change_eng_input:
+        switch_input()
 
-def closing_all():
-    root.quit()  # 退出事件循环
-    root.destroy()  # 关闭窗口
-    try:
-        win.quit()  # 退出事件循环
-        win.destroy()  # 关闭窗口
-    except:
-        print("ERROR when closing win")
+def closing_win():
+    win.quit()  # 退出事件循环
+    win.destroy()  # 关闭窗口
+    if change_eng_input:
+        switch_input()
+
+def pause(event):
+    if event.char.lower() == 'p':
+        global is_paused
+        is_paused = not is_paused # 更新暂停状态
+
+    if is_paused:
+        global score, level_now, revive_num, next_block_kind
+        label.config(text = "得分{} 关卡{} 复活次数{} 下一个{}\n暂停中，按p键继续游戏".format(score, level_now, revive_num, next_block_kind))
+    else:
+        draw_label()
 
 
 def create_win():
     win = tk.Tk() # 游戏界面
     win.title("俄罗斯方块")
-    win.protocol("WM_DELETE_WINDOW", closing_all) # 
+    win.protocol("WM_DELETE_WINDOW", closing_win) # 
 
     global label, canvas
-    label = Label(win, text="这是一个标签")
-    label_font = font.Font(size=30)
+    label = Label(win, text="")
+    label_font = font.Font(size=15) # 
     label.configure(font=label_font)
     label.pack(side='top', anchor='w') # 上面，向左对齐
 
@@ -671,34 +712,74 @@ def create_win():
     canvas.bind("<KeyPress-Left>", horizontal_move_block)
     canvas.bind("<KeyPress-Right>", horizontal_move_block)
     canvas.bind("<KeyPress-Up>", rotate_block)
+    canvas.bind("<KeyRelease-Up>", on_up_key_release) # 
     canvas.bind("<KeyPress-Down>", land)
+    canvas.bind("<KeyPress>", pause) # 
 
     win.update()
     win.after(fps, game_loop) # 在fps 毫秒后调用 game_loop方法
     
     return win
 
+
 def main():
     global win
-    root.withdraw() # 隐藏开始界面
+    root.quit()  # 退出事件循环
+    root.destroy()
     win = create_win()
+    test_use2() # 测试用
+    
+    global change_eng_input
+    if change_eng_input==False:
+        change_eng_input = True # 已切换英文
+        switch_input()
+
     win.mainloop()
 
-
-def test_use(): # 测试用
-    global score, revive_num, fps, SHAPES1
-    # score = 1500 # 直接改初始score 
-    # revive_num = 0 # 直接改复活次数
-    # fps = 100
-    # SHAPES1 = {
-    #     "I1p6": [(0,2), (0,1), (0,0),(0,-1),(0,-2),(0,-3)], # 1*6
-    # }
 
 def open_link():
     webbrowser.open('https://github.com/Frank-Star-fn/Tetris_v2')
 
+def create_root():
+    global root 
+    root = tk.Tk()
+    root.title("俄罗斯方块")
+    root.protocol("WM_DELETE_WINDOW", closing_root)
+
+    # 获取屏幕的高度
+    screen_height = root.winfo_screenheight()
+
+    # 设置界面大小
+    global width
+    root_width = width
+    root_height = screen_height//3
+    root.geometry(f"{root_width}x{root_height}")
+
+    # 计算按钮的位置
+    button_width = 150
+    button_height = 80
+    button_x = (root_width // 2) - (button_width // 2) 
+    button_y = (root_height // 2) - (button_height // 2) - 20 # 
+
+    button = tk.Button(root, text="开始游戏", font=('黑体', 20), command=main) # 创建按钮
+    button.place(x=button_x, y=button_y, width=button_width, height=button_height) # 
+
+    text_rule = '\n游戏规则：填满一行即消除，堆满方块则失败。\n操作：左右键移动，上键旋转，\n下键快速下落，p键暂停。'
+    label_rule = tk.Label(root, text=text_rule, font=('黑体', 13))
+    label_rule.pack() # 
+
+    label_web = tk.Label(root, text='俄罗斯方块-项目链接', fg='blue', cursor='hand2')
+    label_web.pack(side='bottom', anchor='s') # 放在底部
+    label_web.bind('<Button-1>', lambda e: open_link())
+
+    root.deiconify() # 显示开始界面
+    return root 
+
+
 def init(first = False):
-    global level_now, fps, score, current_block, next_block_kind, revive_num, block_list, win, root, vis
+    global level_now, fps, score, current_block, next_block_kind, revive_num
+    global block_list, win, root, vis, visold, is_up_key_pressed, is_paused
+
     level_now = 1 # 关卡数
     fps = 800 # 刷新页面的毫秒间隔
     score = 0 # 得分
@@ -710,47 +791,36 @@ def init(first = False):
         i_row = ['' for j in range(C)]
         block_list.append(i_row)
     vis = [0 for i in range(C)]
+    visold = [1 for i in range(C)]
+    is_up_key_pressed = False
+    is_paused = False
 
     test_use() # 测试用
 
-    if first: # 第一次初始化
-        root.title("俄罗斯方块")
-        root.protocol("WM_DELETE_WINDOW", closing_root)
-
-        # 获取屏幕的宽度和高度
-        # screen_width = root.winfo_screenwidth()
-        screen_height = root.winfo_screenheight()
-
-        # 设置界面大小
-        global width
-        root_width = width
-        root_height = screen_height//3
-        root.geometry(f"{root_width}x{root_height}")
-
-        # 计算按钮的位置
-        button_width = 150
-        button_height = 80
-        button_x = (root_width // 2) - (button_width // 2) 
-        button_y = (root_height // 2) - (button_height // 2) - 20 # 
-
-        button = tk.Button(root, text="开始游戏", font=('黑体', 20), command=main) # 创建按钮
-        button.place(x=button_x, y=button_y, width=button_width, height=button_height) # 
-
-        label_web = tk.Label(root, text='俄罗斯方块-项目链接', fg='blue', cursor='hand2')
-        label_web.pack(side='bottom', anchor='s') # 放在底部
-        label_web.bind('<Button-1>', lambda e: open_link())
-
-        root.deiconify() # 显示开始界面
-        root.mainloop() # 启动主循环
-        
-    else: # 不是第一次初始化
+    if first==False: # 不是第一次初始化
         try:
             win.quit()  # 退出事件循环
             win.destroy()  # 关闭窗口
-            root.deiconify() # 显示开始界面
         except:
             print("Error in operating interface") 
-        
+
+    root = create_root() # 主循环
+    root.mainloop() # 启动主循环
+
+
+
+
+def test_use2(): # 测试用
+    global fps, SHAPES1
+    # fps = 100 # 
+    # SHAPES1 = { # 
+    #     "I1p6": [(0,2), (0,1), (0,0),(0,-1),(0,-2),(0,-3)], # 1*6
+    # }
+
+def test_use(): # 测试用
+    global score, revive_num
+    # score = 1500 # 直接改初始score 
+    # revive_num = 0 # 直接改复活次数
 
 if __name__ == "__main__":
     init(True) # 初始化
