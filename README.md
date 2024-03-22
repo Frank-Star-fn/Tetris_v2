@@ -10,12 +10,14 @@
 -  其他各种形状的方块。
 3. 复活：死亡时，消耗一次复活次数，清除上半屏幕并继续游戏。
 4. 更新了得分规则，一次性消除多行方块时得分更高。
+5. 提示下一个方块
+6. 提示下落位置
 
 ## 参考项目
 [BigShuang.俄罗斯方块](https://github.com/BigShuang/Tetris)
 
 
 ## 运行截屏
-<img src="pic/pic1.png" width="31%"> <img src="pic/pic2-score2082.png" width="30%">
+<img src="pic/pic1v2.png" width="30%"> 
 
 
