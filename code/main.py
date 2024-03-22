@@ -637,21 +637,24 @@ def game_loop():
 
     win.after(fps, game_loop)
 
+def closing_root():
+    root.quit()  # 退出事件循环
+    root.destroy()  # 关闭窗口
 
-def on_closing():
+def closing_all():
     root.quit()  # 退出事件循环
     root.destroy()  # 关闭窗口
     try:
         win.quit()  # 退出事件循环
         win.destroy()  # 关闭窗口
     except:
-        print("ERROR when close win")
+        print("ERROR when closing win")
 
 
 def create_win():
     win = tk.Tk() # 游戏界面
     win.title("俄罗斯方块")
-    win.protocol("WM_DELETE_WINDOW", on_closing)
+    win.protocol("WM_DELETE_WINDOW", closing_all) # 
 
     global label, canvas
     label = Label(win, text="这是一个标签")
@@ -712,7 +715,7 @@ def init(first = False):
 
     if first: # 第一次初始化
         root.title("俄罗斯方块")
-        root.protocol("WM_DELETE_WINDOW", on_closing)
+        root.protocol("WM_DELETE_WINDOW", closing_root)
 
         # 获取屏幕的宽度和高度
         # screen_width = root.winfo_screenwidth()
@@ -741,9 +744,9 @@ def init(first = False):
         root.mainloop() # 启动主循环
         
     else: # 不是第一次初始化
-        win.quit()  # 退出事件循环
-        win.destroy()  # 关闭窗口
         try:
+            win.quit()  # 退出事件循环
+            win.destroy()  # 关闭窗口
             root.deiconify() # 显示开始界面
         except:
             print("Error in operating interface") 
