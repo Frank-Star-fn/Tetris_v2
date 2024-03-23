@@ -12,6 +12,9 @@ from tkinter import Canvas, Tk
 import shapes
 
 # 常量定义
+STOP_KEY = 'x' # 暂停键
+SKILL_KEY = 'z' # 技能键
+
 cell_size = 35 #
 C = 14 # 12
 R = 22 # 20
@@ -29,6 +32,7 @@ Window_Y = 100
 root,win,canvas,label = 0,0,0,0
 canvas_root = 0
 image_tk = None # 全局变量，避免被回收
+
 
 # 全局变量定义
 # 每局都初始化的全局变量
@@ -49,9 +53,12 @@ skill_point = 1 # 技能点
 skill_using = False
 fall_ci = 0
 boss_hp = 300
+image_id = 0
 
 # 从第二局开始，不用初始化的全局变量
 change_eng_input = False # 未切换英文输入法
+
+
 
 # 加载图片
 road = r"boss_pic\boss_v1.2.png"
@@ -288,14 +295,14 @@ def draw_label(paused = False):
     if level_now==7:
         text = text + " Boss血量{}".format(boss_hp)
     if paused: # 正在暂停
-        text = text + "\n暂停中，按p键继续游戏"
+        text = text + "\n暂停中，按"+ STOP_KEY +"键继续游戏"
     
     # print("text =", text) #
     label.config(text=text) # 
 
 
 def show_boss_die():
-    global image_tk
+    global image_tk, image_id
 
     # 缩小图片
     new_width = 8 * cell_size
@@ -306,6 +313,10 @@ def show_boss_die():
     # 位置
     x = 3 * cell_size
     y = (R-4) * cell_size + 5 # 
+
+    # 清除之前的图片
+    canvas.delete(image_id)
+
     # 在指定位置绘制图片
     canvas.create_image(x,y, image=image_tk,anchor='nw')
 
@@ -333,7 +344,17 @@ def show_boss():
     x = 3 * cell_size
     y = (R-4) * cell_size + 5 # 
     # 在指定位置绘制图片
-    canvas.create_image(x,y, image=image_tk,anchor='nw')
+    global image_id
+    if image_id!=0:
+        try:
+            canvas.delete(image_id) # 清除之前的图片
+            #
+            # print("canvas.delete(image_id)") #
+        except:
+            print("ERROR when delete old image")
+    image_id = canvas.create_image(x,y, image=image_tk,anchor='nw')
+    #
+    # print("image_id = ", image_id)
 
 
 def check_level(): # 更新当前所在的关卡
@@ -724,12 +745,12 @@ def skill(): # 放技能
 
 
 def press_key(event):
-    if event.char.lower() == 'p':
+    if event.char.lower() == STOP_KEY:
         pause()
     else:
         global is_paused
         if is_paused == False: # 不在暂停状态
-            if event.char.lower() == 'o':
+            if event.char.lower() == SKILL_KEY:
                 skill()
 
 
@@ -825,7 +846,10 @@ def create_root():
     y = Window_Y+50
     root.geometry(f'+{x}+{y}') # 设置窗口位置
 
-    text_rule = '\n游戏规则：填满一行即消除，堆满方块则失败。\n\n操作：左右键移动，上键旋转，下键快速下落，\np键暂停，o键释放技能。\n'
+    text_rule = ('\n游戏规则：填满一行即消除，堆满方块则失败。\n\n' + 
+                 '操作：左右键移动，上键旋转，下键快速下落，\n' + 
+                 STOP_KEY+'键暂停，'+SKILL_KEY+'键释放技能。\n')
+
     label_rule = tk.Label(root, text=text_rule, font=('黑体', 13))
     label_rule.pack() # 
 
@@ -867,7 +891,7 @@ def create_root():
 def init(first = False): # 初始化
     global level_now, level_old, fps, oldfps, score, current_block, next_block_kind, revive_num
     global block_list, win, root, vis, visold, is_up_key_pressed
-    global is_paused, skill_point, skill_using, fall_ci, boss_hp
+    global is_paused, skill_point, skill_using, fall_ci, boss_hp, image_id
 
     level_now = 1 # 关卡数
     level_old = 1
@@ -889,6 +913,7 @@ def init(first = False): # 初始化
     skill_using = False
     fall_ci = 0
     boss_hp = 300
+    image_id = 0
 
     test_use() # 测试用
 
@@ -912,10 +937,10 @@ def test_use2(): # 测试用
 
 def test_use(): # 测试用, 直接改数据
     global score, revive_num, skill_point, boss_hp
-    # score = 2000 # 直接改初始score 
+    # score = 1780 # 直接改初始score 
     # revive_num = 999 # 直接改复活次数
     # skill_point = 999 # 直接改初始技能点
-    # boss_hp = 1 # 300 # 改boss血量
+    # boss_hp = 1 # 改boss血量
 
 
 if __name__ == "__main__":
