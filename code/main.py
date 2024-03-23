@@ -12,7 +12,8 @@ import time
 cell_size = 35 #
 C = 14 # 12
 R = 22 # 20
-height = R * cell_size + 20 # 
+Bottom_h = 12 # 
+height = R * cell_size + Bottom_h # 
 width = C * cell_size
 level_score = [300, 600, 900, 1200, 1500] # 进入下一关所需的得分
 level_fps = [0, 800, 750, 700, 680, 660, 640] # 每关对应的fps
@@ -25,8 +26,10 @@ root,win,canvas,label = 0,0,0,0
 # 全局变量定义
 # 每局都初始化的全局变量
 level_now = 1 # 关卡数
+level_old = 1
 score = 0 # 得分
 fps = 800 # 刷新页面的毫秒间隔
+oldfps = 800
 revive_num = 1 # 复活次数
 current_block = None
 next_block_kind = ""
@@ -35,6 +38,9 @@ vis = []
 visold = []
 is_up_key_pressed = False
 is_paused = False
+skill_point = 1 # 技能点
+skill_using = False
+fall_ci = 0
 
 # 从第二局开始，不用初始化的全局变量
 change_eng_input = False # 未切换英文输入法
@@ -65,7 +71,7 @@ SHAPES1 = {
 
     "AddBoom": [(-1,0), (0,-1), (0,0), (1,0), (0,1)], # +,消除三行三列
     
-    "I1p6": [(0,2), (0,1), (0,0),(0,-1),(0,-2),(0,-3)], # 1*6
+    "I1p6": [(0,3),(0,2),(0,1),(0,0),(0,-1),(0,-2)], # 1*6
     "I2p3": [(0,-1), (0,0),(1,0),(1,-1),(-1,0),(-1,-1)],# 2*3
 }
 
@@ -82,7 +88,7 @@ SHAPES3["Add"]=[(-1,0), (0,-1), (0,0), (1,0), (0,1)] # +
 
 # 第4关, 增加方块: "BigT", "H"
 SHAPES4 = copy.deepcopy(SHAPES3)
-SHAPES4["BigT"]=[(0,0),(0,1),(0,2),(0,-1),(0,-2),(1,0),(2,0)]
+SHAPES4["BigT"]=[(0,0),(0,1),(0,2),(1,0),(2,0),(-1,0),(-2,0)]
 SHAPES4["H"]=[(0,0),(1,0),(-1,0),(1,-1),(1,1),(-1,-1),(-1,1)] 
 
 # 第5关, 增加方块: "Dots4"
@@ -98,7 +104,7 @@ SHAPES6["O5p5"]=[(0,-2),(0,-1),(0,0),(0,1),(0,2),
                       (-2,-2),(-2,-1),(-2,0),(-2,1),(-2,2),] # 5*5, Hard
 
 # SHAPES6["King"]=[(0,0),(0,1),(0,-1),(1,0),(-1,0),(0,2),(0,-2),(-1,-2),(1,-2),(-1,2),(1,2)] # Very Hard
-# SHAPES5["GiantO7p7"]=[(0,-3),(0,-2),(0,-1),(0,0),(0,1),(0,2),(0,3),
+# SHAPES6["GiantO7p7"]=[(0,-3),(0,-2),(0,-1),(0,0),(0,1),(0,2),(0,3),
 #               (1,-3),(1,-2),(1,-1),(1,0),(1,1),(1,2),(1,3),
 #               (2,-3),(2,-2),(2,-1),(2,0),(2,1),(2,2),(2,3),
 #               (3,-3),(3,-2),(3,-1),(3,0),(3,1),(3,2),(3,3),
@@ -233,7 +239,9 @@ SHAPESCOLOR = {
     # "Z": "Cyan", # 亮青色
 
 
-def draw_cell_by_cr(canvas, c, r, color="#CCCCCC", tag_kind=""):
+
+
+def draw_cell_by_cr(c, r, color="#CCCCCC", tag_kind=""):
     """
     :param canvas: 画板，用于绘制一个方块的Canvas对象
     :param c: 方块所在列
@@ -241,37 +249,42 @@ def draw_cell_by_cr(canvas, c, r, color="#CCCCCC", tag_kind=""):
     :param color: 方块颜色，默认为#CCCCCC，轻灰色
     :return:
     """
+    global canvas
     x0 = c * cell_size
     y0 = r * cell_size
-    x1 = c * cell_size + cell_size
-    y1 = r * cell_size + cell_size
+    x1 = x0 + cell_size
+    y1 = y0 + cell_size
     if tag_kind == "falling":
         canvas.create_rectangle(x0, y0, x1, y1, fill=color,outline="white", width=2, tag=tag_kind)
     elif tag_kind == "row":
         canvas.create_rectangle(x0, y0, x1, y1, fill=color, outline="white", width=2, tag="row-%s" % r)
     else:
-        canvas.create_rectangle(x0, y0, x1, y1, fill=color, outline="white", width=2)
+        canvas.create_rectangle(x0, y0, x1, y1, fill=color, outline="white", width=2) # 背景方块
+
 
 
 # 画一块
-def draw_bottom_block(canvas, x, visx):
-    y0 = height - 20
+def draw_bottom_block(x, visx):
+    global canvas
+    y0 = height - Bottom_h
     y1 = height
+    canvas.delete("b%s" % x) # 删除原有的指示条，避免变卡
     if visx==0:
-        canvas.create_rectangle(x*cell_size, y0, (x+1)*cell_size, y1, fill=color_bottom, outline="white", width=2)
+        canvas.create_rectangle(x*cell_size, y0, (x+1)*cell_size, y1, fill=color_bottom, outline="white", width=2, tag="b%s" % x)
     else:
-        canvas.create_rectangle(x*cell_size, y0, (x+1)*cell_size, y1, fill=color_bottom2, outline="white", width=2)
+        canvas.create_rectangle(x*cell_size, y0, (x+1)*cell_size, y1, fill=color_bottom2, outline="white", width=2, tag="b%s" % x)
+
 
 # 画一整行
-def draw_bottom(canvas):
+def draw_bottom():
     for i in range(0,C):
         if vis[i]!=visold[i]: # 有变化
             visold[i]=vis[i]
-            draw_bottom_block(canvas, i, vis[i])
+            draw_bottom_block(i, vis[i])
 
 
 # 绘制面板, 只有在第一次绘制时才绘制背景色方块
-def draw_board(canvas, block_list, isFirst=False):
+def draw_board(isFirst=False):
     # 删掉原来所有的行
     for ri in range(R):
         canvas.delete("row-%s" % ri)
@@ -280,14 +293,14 @@ def draw_board(canvas, block_list, isFirst=False):
         for ci in range(C):
             cell_type = block_list[ri][ci]
             if cell_type:
-                draw_cell_by_cr(canvas, ci, ri, SHAPESCOLOR[cell_type], tag_kind="row")
+                draw_cell_by_cr(ci, ri, SHAPESCOLOR[cell_type], tag_kind="row")
             elif isFirst:
-                draw_cell_by_cr(canvas, ci, ri)
+                draw_cell_by_cr(ci, ri)
     
-    draw_bottom(canvas)
+    draw_bottom()
 
 
-def draw_cells(canvas, c, r, cell_list, color="#CCCCCC"):
+def draw_cells(c, r, cell_list, color="#CCCCCC"):
     """
     绘制指定形状指定颜色的俄罗斯方块
     :param canvas: 画板
@@ -297,25 +310,20 @@ def draw_cells(canvas, c, r, cell_list, color="#CCCCCC"):
     :param color: 该形状颜色
     :return:
     """
-    global vis
+    global canvas, vis
     vis = [0 for i in range(C)] # 初始化vis
     for cell in cell_list:
-        cell_c, cell_r = (0, 0)
-        try:
-            cell_c, cell_r = cell # 
-        except:
-            print("ERROR cell")
-            print("cell =", cell)
+        cell_c, cell_r = cell
 
         ci = cell_c + c
         ri = cell_r + r
         # 判断该位置方格在画板内部(画板外部的方格不再绘制)
         if 0 <= c < C and 0 <= r < R:
-            draw_cell_by_cr(canvas, ci, ri, color, tag_kind="falling")
+            draw_cell_by_cr(ci, ri, color, tag_kind="falling")
             vis[ci]=1 # 更新vis
     
     
-def draw_block_move(canvas, block, direction=[0, 0]):
+def draw_block_move(block, direction=[0, 0]):
     """
     绘制向指定方向移动后的俄罗斯方块
     :param canvas: 画板
@@ -327,17 +335,40 @@ def draw_block_move(canvas, block, direction=[0, 0]):
     c, r = block['cr']
     cell_list = block['cell_list']
 
+    global canvas
     # 移动前，清除原有位置绘制的俄罗斯方块
-    canvas.delete("falling")
+    canvas.delete("falling") # 
 
     dc, dr = direction
     new_c, new_r = c+dc, r+dr
     block['cr'] = [new_c, new_r]
-    # 在新位置绘制新的俄罗斯方块就好
-    draw_cells(canvas, new_c, new_r, cell_list, SHAPESCOLOR[shape_type])
+    # 在新位置绘制新的俄罗斯方块
+    draw_cells(new_c, new_r, cell_list, SHAPESCOLOR[shape_type])
     
-    if dc!=0:
-        draw_bottom(canvas) # 更新底部指示条
+    if dc!=0: # 左右移动
+        draw_bottom() # 更新底部指示条
+
+
+def draw_vertical_line(ci): # 
+    cr = [ci, 0]
+    kind = 'Boom'
+    block = {
+        'kind': kind,  # 对应俄罗斯方块的类型
+        'cell_list': SHAPES6[kind], # 方块列表
+        'cr': cr # 中心点的行列
+    }
+    color = SHAPESCOLOR[block['kind']]
+
+    if ci==0:
+        for i in range(0,R):
+            draw_cell_by_cr(ci,i,color) # 变红
+    elif ci<C:
+        for i in range(0,R):
+            draw_cell_by_cr(ci,i,color) # 变红
+            draw_cell_by_cr(ci-1,i) # 变灰
+    else: # ci==C
+        for i in range(0,R):
+            draw_cell_by_cr(ci-1,i) # 变灰
 
 
 def generate_new_block():
@@ -359,18 +390,24 @@ def generate_new_block():
 
     # 随机生成下一个方块的类别
     next_block_kind = random.choice(list(shape_now.keys()))
-
     draw_label() # 更新标签
+
+    if kind == "Skill": # 技能
+        global skill_using
+        skill_using = True # 正在释放技能
+        # draw_vertical_line() # 召唤流星雨
+        kind = next_block_kind # 
 
     # 对应横纵坐标，以左上角为原点，水平向右为x轴正方向，
     # 竖直向下为y轴正方向，x对应横坐标，y对应纵坐标
     cr = [C // 2, 0]
     new_block = {
         'kind': kind,  # 对应俄罗斯方块的类型
-        'cell_list': shape_now[kind],
-        'cr': cr
+        'cell_list': shape_now[kind], # 方块列表
+        'cr': cr # 中心点的行列
     }
     return new_block
+    
 
 
 def check_move(block, direction=[0, 0]):
@@ -379,7 +416,7 @@ def check_move(block, direction=[0, 0]):
         :param block: 俄罗斯方块对象
         :param direction: 俄罗斯方块移动方向
         :return: boolean 是否可以朝制定方向移动
-        """
+    """
     cc, cr = block['cr']
     cell_list = block['cell_list']
 
@@ -408,12 +445,13 @@ def check_row_complete(row):
 
 
 def draw_label():
-    global score, level_now, revive_num, next_block_kind
-    label.config(text = "得分{} 关卡{} 复活次数{} 下一个{}".format(score, level_now, revive_num, next_block_kind))
+    global score, level_now, revive_num, next_block_kind, skill_point
+    label.config(text = "得分{} 关卡{} 下一个{}\n复活次数{} 技能点数{}"
+                 .format(score, level_now, next_block_kind, revive_num, skill_point))
 
 
-def check_level(score): # 更新当前关卡
-    global fps, level_now
+def check_level(): # 更新当前所在的关卡
+    global score, fps, level_now, level_old
     len1=len(level_score)
     for i in range(len1-1,-1,-1): # 
         if score>=level_score[i]:
@@ -421,13 +459,20 @@ def check_level(score): # 更新当前关卡
             fps = level_fps[level_now]
             break
 
+    if level_now>level_old: # 涨关了
+        level_old = level_now
+        if level_now%3==0: # 到达3的倍数关
+            global skill_point
+            skill_point += 1 # 多一个技能点
+
+
 
 # 更新得分
 def update_score(cnt):
     global score
     score += cnt # 得分增加
-    check_level(score)
-    draw_board(canvas, block_list)
+    check_level()
+    draw_board() # 重新绘制
     draw_label()
 
 
@@ -448,6 +493,7 @@ def boom_clear(block):
                 cnt+=1
     
     update_score(cnt)
+    # draw_board() # 重新绘制
 
 
 def addBoom_clear(block):
@@ -472,6 +518,7 @@ def addBoom_clear(block):
                 cnt+=1
 
     update_score(cnt)
+    # draw_board() # 重新绘制
 
 
 def check_and_clear():
@@ -495,8 +542,8 @@ def check_and_clear():
             # 消除3行：60分, 消除4行：100分, 以此类推
 
     if has_complete_row:
-        check_level(score) # 更新当前关卡
-        draw_board(canvas, block_list)
+        check_level() # 更新当前关卡
+        draw_board() # 重新绘制
         draw_label()
 
 
@@ -512,10 +559,12 @@ def save_block_to_list(block):
         cell_c, cell_r = cell
         c = cell_c + cc
         r = cell_r + cr
-        # block_list 在对应位置记下其类型
+        # block_list 在对应位置记下其类型(用于在清除时更新画板)
         block_list[r][c] = shape_type
+        draw_cell_by_cr(c, r, SHAPESCOLOR[shape_type], tag_kind="row")
 
-        draw_cell_by_cr(canvas, c, r, SHAPESCOLOR[shape_type], tag_kind="row")
+    #
+    # print("block_list :", block_list) # 
 
 
 def horizontal_move_block(event):
@@ -534,7 +583,7 @@ def horizontal_move_block(event):
 
     global current_block
     if current_block is not None and check_move(current_block, direction):
-        draw_block_move(canvas, current_block, direction)
+        draw_block_move(current_block, direction)
 
 
 def rotate_block(event): # 旋转
@@ -566,11 +615,11 @@ def rotate_block(event): # 旋转
 
     if check_move(block_after_rotate):
         cc, cr= current_block['cr']
-        draw_cells(canvas, cc, cr, current_block['cell_list'])
-        draw_cells(canvas, cc, cr, rotate_list,SHAPESCOLOR[current_block['kind']])
+        draw_cells(cc, cr, current_block['cell_list'])
+        draw_cells(cc, cr, rotate_list,SHAPESCOLOR[current_block['kind']])
         current_block = block_after_rotate
         #
-        draw_bottom(canvas) # 更新底部
+        draw_bottom() # 更新底部
 
 def on_up_key_release(event):
     global is_up_key_pressed
@@ -603,52 +652,82 @@ def land(event):
 
     down = [0, min_height]
     if check_move(current_block, down):
-        draw_block_move(canvas, current_block, down)
+        draw_block_move(current_block, down)
 
 
-def revive(canvas): # 复活
+def revive(): # 复活
     R2 = R//2
     for i in range(0, R2):
         block_list[i] = ['' for j in range(0, C)]
 
     global revive_num
     revive_num-=1
-    draw_board(canvas, block_list)
+    draw_board() # 重新绘制
     draw_label()
 
 
 def game_loop():
+    global skill_using, fall_ci, fps, oldfps, canvas, vis, visold
+
+    if skill_using: # 正在使用技能
+        if fall_ci<=C: # 
+            draw_vertical_line(fall_ci) # 
+            fall_ci += 1
+            win.after(fps, game_loop) # 
+            return
+        else:
+            fps = oldfps
+            skill_using = False # 技能释放结束
+            canvas.destroy() # 删除原有canvas
+            canvas = create_canvas() # 新建canvas
+            draw_board(True) # 第一次绘制
+            vis = [0 for i in range(C)]
+            visold = [1 for i in range(C)]
+            draw_bottom() # 更新底部指示条
+    
     if is_paused: # 暂停中
         win.after(fps, game_loop) # 
         return  
     
     win.update()
-    global current_block, canvas
+    global current_block
     if current_block is None:
         new_block = generate_new_block()
+        
+        if skill_using: # 正在使用技能
+            # 清屏
+            global block_list
+            block_list = []
+            for i in range(R):
+                i_row = ['' for j in range(C)]
+                block_list.append(i_row)
+
+            # 播放动画
+            oldfps = fps
+            fps = 100 # 加速
+            fall_ci = 0
+            draw_vertical_line(fall_ci) # 
+            fall_ci += 1
+            win.after(fps, game_loop)
+            return
+
         # 新生成的俄罗斯方块需要先在生成位置绘制出来
-        draw_block_move(canvas, new_block)
-        draw_bottom(canvas) # 更新底部指示条
+        draw_block_move(new_block)
+        draw_bottom() # 更新底部指示条
 
         current_block = new_block
         if not check_move(current_block, [0, 0]):
             global revive_num
             if revive_num<=0:
                 messagebox.showinfo("游戏结束！", "最终得分：%s分" % score)
-                try:
-                    win.withdraw() # 
-                except:
-                    print("ERROR when win.withdraw()") #
-
                 init()
                 return
-            
             else: # revive_num>=1
-                revive(canvas)
+                revive()
                 
     else:
         if check_move(current_block, [0, 1]):
-            draw_block_move(canvas, current_block, [0, 1])
+            draw_block_move(current_block, [0, 1])
         else:
             # 无法移动，记入 block_list 中
             save_block_to_list(current_block)
@@ -680,16 +759,69 @@ def closing_win():
     if change_eng_input:
         switch_input()
 
-def pause(event):
-    if event.char.lower() == 'p':
-        global is_paused
-        is_paused = not is_paused # 更新暂停状态
+def pause():
+    global is_paused
+    is_paused = not is_paused # 更新暂停状态
 
-    if is_paused:
+    if is_paused: # 暂停
         global score, level_now, revive_num, next_block_kind
-        label.config(text = "得分{} 关卡{} 复活次数{} 下一个{}\n暂停中，按p键继续游戏".format(score, level_now, revive_num, next_block_kind))
-    else:
+        label.config(text = "得分{} 关卡{} 下一个{}\n复活次数{} 技能点数{}\n暂停中，按p键继续游戏"
+                 .format(score, level_now, next_block_kind, revive_num, skill_point)) # p
+        
+    else: # 继续
         draw_label()
+
+
+def use_skill(): # 
+    global next_block_kind
+    global skill_point
+
+    if next_block_kind!="Skill": # 下一个不是用技能
+        skill_point -= 1 # 消耗技能点
+        next_block_kind = "Skill" # 下一个改为使用技能
+        draw_label()
+
+def print_lack_skill():
+    # print("技能点不足") # 
+    global score, level_now, revive_num, next_block_kind, skill_point
+    label.config(text = "得分{} 关卡{} 下一个{}\n复活次数{} 技能点数{}(技能点不足)"
+                 .format(score, level_now, next_block_kind, revive_num, skill_point))
+
+
+def skill(): # 放技能
+    global skill_point
+    if skill_point>=1: # 技能点足够
+        use_skill()
+    else:
+        print_lack_skill()
+        
+
+
+def press_key(event):
+    if event.char.lower() == 'p':
+        pause()
+    else:
+        global is_paused
+        if is_paused == False: # 不在暂停状态
+            if event.char.lower() == 'o':
+                skill()
+
+
+# def clear_canvas():
+
+def create_canvas():
+    canvas = tk.Canvas(win, width=width, height=height)
+    canvas.pack()
+    check_level() # 更新关卡
+    draw_label() # 更新label，标题中展示分数和关卡
+    canvas.focus_set() # 聚焦到canvas画板对象上
+    canvas.bind("<KeyPress-Left>", horizontal_move_block)
+    canvas.bind("<KeyPress-Right>", horizontal_move_block)
+    canvas.bind("<KeyPress-Up>", rotate_block)
+    canvas.bind("<KeyRelease-Up>", on_up_key_release) # 
+    canvas.bind("<KeyPress-Down>", land)
+    canvas.bind("<KeyPress>", press_key) # 
+    return canvas
 
 
 def create_win():
@@ -703,18 +835,8 @@ def create_win():
     label.configure(font=label_font)
     label.pack(side='top', anchor='w') # 上面，向左对齐
 
-    canvas = tk.Canvas(win, width=width, height=height)
-    canvas.pack()
-    check_level(score) # 更新关卡
-    draw_label() # 更新label，标题中展示分数和关卡
-    draw_board(canvas, block_list, True)
-    canvas.focus_set() # 聚焦到canvas画板对象上
-    canvas.bind("<KeyPress-Left>", horizontal_move_block)
-    canvas.bind("<KeyPress-Right>", horizontal_move_block)
-    canvas.bind("<KeyPress-Up>", rotate_block)
-    canvas.bind("<KeyRelease-Up>", on_up_key_release) # 
-    canvas.bind("<KeyPress-Down>", land)
-    canvas.bind("<KeyPress>", pause) # 
+    canvas = create_canvas() # 新建canvas
+    draw_board(True) # 第一次绘制
 
     win.update()
     win.after(fps, game_loop) # 在fps 毫秒后调用 game_loop方法
@@ -759,12 +881,12 @@ def create_root():
     button_width = 150
     button_height = 80
     button_x = (root_width // 2) - (button_width // 2) 
-    button_y = (root_height // 2) - (button_height // 2) - 20 # 
+    button_y = (root_height // 2) - (button_height // 2)  # 
 
     button = tk.Button(root, text="开始游戏", font=('黑体', 20), command=main) # 创建按钮
     button.place(x=button_x, y=button_y, width=button_width, height=button_height) # 
 
-    text_rule = '\n游戏规则：填满一行即消除，堆满方块则失败。\n操作：左右键移动，上键旋转，\n下键快速下落，p键暂停。'
+    text_rule = '\n游戏规则：填满一行即消除，堆满方块则失败。\n\n操作：左右键移动，上键旋转，下键快速下落，\np键暂停，o键释放技能。'
     label_rule = tk.Label(root, text=text_rule, font=('黑体', 13))
     label_rule.pack() # 
 
@@ -777,11 +899,13 @@ def create_root():
 
 
 def init(first = False):
-    global level_now, fps, score, current_block, next_block_kind, revive_num
-    global block_list, win, root, vis, visold, is_up_key_pressed, is_paused
+    global level_now, level_old, fps, oldfps, score, current_block, next_block_kind, revive_num
+    global block_list, win, root, vis, visold, is_up_key_pressed, is_paused, skill_point, skill_using, fall_ci
 
     level_now = 1 # 关卡数
+    level_old = 1
     fps = 800 # 刷新页面的毫秒间隔
+    oldfps = 800
     score = 0 # 得分
     current_block = None
     next_block_kind = ""
@@ -794,6 +918,9 @@ def init(first = False):
     visold = [1 for i in range(C)]
     is_up_key_pressed = False
     is_paused = False
+    skill_point = 1 # 技能点数
+    skill_using = False
+    fall_ci = 0
 
     test_use() # 测试用
 
@@ -808,19 +935,19 @@ def init(first = False):
     root.mainloop() # 启动主循环
 
 
-
-
 def test_use2(): # 测试用
     global fps, SHAPES1
     # fps = 100 # 
     # SHAPES1 = { # 
-    #     "I1p6": [(0,2), (0,1), (0,0),(0,-1),(0,-2),(0,-3)], # 1*6
+    #     "I1p6": [(0,3),(0,2),(0,1),(0,0),(0,-1),(0,-2)], # 1*6
     # }
 
 def test_use(): # 测试用
-    global score, revive_num
-    # score = 1500 # 直接改初始score 
+    global score, revive_num, skill_point
+    # score = 599 # 直接改初始score 
     # revive_num = 0 # 直接改复活次数
+    # skill_point = 999 # 直接改技能点
+
 
 if __name__ == "__main__":
     init(True) # 初始化
