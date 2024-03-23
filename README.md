@@ -13,12 +13,14 @@
 5. 顶部标签提示下一个方块，底部指示条提示下落位置。
 6. 新增开始界面。
 7. 新增暂停功能，按p键暂停。
+8. 新增技能“清屏”，按o键释放技能。每3关获得1点技能点。
+9. 优化了运行性能。
  
 ## 参考项目
 [BigShuang.俄罗斯方块](https://github.com/BigShuang/Tetris)
 
 
 ## 运行截屏
-<img src="pic/pic1v3.png" width="30%"> <img src="pic/pic3-622clear.png" width="30%"> 
+<img src="pic/pic4-1221.png" width="30%"> <img src="pic/pic5-1563skill.png" width="31%"> 
 
 
