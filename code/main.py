@@ -3,10 +3,13 @@ from tkinter import *
 from tkinter import font
 from tkinter import messagebox
 import random
-import copy
 import webbrowser
 import pyautogui
 import time
+from PIL import Image, ImageTk
+from tkinter import Canvas, Tk
+
+import shapes
 
 # 常量定义
 cell_size = 35 #
@@ -15,13 +18,17 @@ R = 22 # 20
 Bottom_h = 12 # 
 height = R * cell_size + Bottom_h # 
 width = C * cell_size
-level_score = [300, 600, 900, 1200, 1500] # 进入下一关所需的得分
-level_fps = [0, 800, 750, 700, 680, 660, 640] # 每关对应的fps
+level_score = [300, 600, 900, 1200, 1500, 2000] # 进入下一关所需的得分
+level_fps = [0, 800, 750, 700, 680, 660, 640, 620] # 每关对应的fps
 color_bottom = "#222222" # 黑色
 color_bottom2 = "#CCCCAA" # 淡黄
+Window_X = 900
+Window_Y = 100
 
 # 全局对象定义
 root,win,canvas,label = 0,0,0,0
+canvas_root = 0
+image_tk = None # 全局变量，避免被回收
 
 # 全局变量定义
 # 每局都初始化的全局变量
@@ -41,207 +48,32 @@ is_paused = False
 skill_point = 1 # 技能点
 skill_using = False
 fall_ci = 0
+boss_hp = 300
 
 # 从第二局开始，不用初始化的全局变量
 change_eng_input = False # 未切换英文输入法
 
+# 加载图片
+road = r"boss_pic\boss_v1.2.png"
+image = Image.open(road)
+road2 = r"boss_pic\boss_v1.6die.png"
+image_die = Image.open(road2)
 
 # 加入闯关机制
 # 定义各种形状
-# 第1关
-SHAPES1 = {
-    "Small":[(0, 0)], # 1*1
-    "Small2":[(0, 0)], # 1*1
-    "Boom":[(0, 0)], # 1*1,炸附近3*3,每个1分
-    
-    "I1p2": [(0, 1), (0, 0)], # 1*2
-    "Dots2" : [(1, 0), (-1, 0)],
-    "Dots2v2" : [(0, 0), (1, 1)],
+SHAPES1 = shapes.SHAPES1
+SHAPES2 = shapes.SHAPES2
+SHAPES3 = shapes.SHAPES3
+SHAPES4 = shapes.SHAPES4
+SHAPES5 = shapes.SHAPES5
+SHAPES6 = shapes.SHAPES6
+SHAPES7 = shapes.SHAPES7
 
-    "I1p3": [(0, 1), (0, 0), (0, -1)], # 1*3
-    "Corner": [(0, 1), (0, 0), (1, 0)], # Corner
-
-    "O": [(-1, -1), (0, -1), (-1, 0), (0, 0)],
-    "S": [(-1, 0), (0, 0), (0, -1), (1, -1)],
-    "T": [(-1, 0), (0, 0), (0, -1), (1, 0)],
-    "I": [(0, 1), (0, 0), (0, -1), (0, -2)],
-    "L": [(-1, 0), (0, 0), (-1, -1), (-1, -2)],
-    "J": [(-1, 0), (0, 0), (0, -1), (0, -2)],
-    "Z": [(-1, -1), (0, -1), (0, 0), (1, 0)],
-
-    "AddBoom": [(-1,0), (0,-1), (0,0), (1,0), (0,1)], # +,消除三行三列
-    
-    "I1p6": [(0,3),(0,2),(0,1),(0,0),(0,-1),(0,-2)], # 1*6
-    "I2p3": [(0,-1), (0,0),(1,0),(1,-1),(-1,0),(-1,-1)],# 2*3
-}
-
-# 第2关, 增加方块: "O3p3","F"
-SHAPES2 = copy.deepcopy(SHAPES1)
-SHAPES2["O3p3"]=[(0,0),(0,1),(0,-1),(-1,0),(-1,1),(-1,-1),(1,0),(1,1),(1,-1)] # 3*3
-SHAPES2["F"]=[(0,2), (0,1), (0,0),(0,-1),(1,-1),(1,1)]
-
-# 第3关, 增加方块: "O4p4","Add"
-SHAPES3 = copy.deepcopy(SHAPES2)
-SHAPES3["O4p4"]=[(0,0),(-1,-1),(0,-1),(-1,0),(-2,-2),(-2,-1),(-2,0),(-1,-2),(0,-2),
-               (1,1),(1,0),(1,-1),(1,-2),(0,1),(-1,1),(-2,1)] # 4*4
-SHAPES3["Add"]=[(-1,0), (0,-1), (0,0), (1,0), (0,1)] # +
-
-# 第4关, 增加方块: "BigT", "H"
-SHAPES4 = copy.deepcopy(SHAPES3)
-SHAPES4["BigT"]=[(0,0),(0,1),(0,2),(1,0),(2,0),(-1,0),(-2,0)]
-SHAPES4["H"]=[(0,0),(1,0),(-1,0),(1,-1),(1,1),(-1,-1),(-1,1)] 
-
-# 第5关, 增加方块: "Dots4"
-SHAPES5 = copy.deepcopy(SHAPES4)
-SHAPES5["Dots4"]=[(1,1),(1,-1),(-1,-1),(-1,1)] # Hard # 注意不要有多余的逗号
-
-# 第6关, 增加方块: "O5p5"
-SHAPES6 = copy.deepcopy(SHAPES5)
-SHAPES6["O5p5"]=[(0,-2),(0,-1),(0,0),(0,1),(0,2),
-                      (1,-2),(1,-1),(1,0),(1,1),(1,2),
-                      (2,-2),(2,-1),(2,0),(2,1),(2,2),
-                      (-1,-2),(-1,-1),(-1,0),(-1,1),(-1,2),
-                      (-2,-2),(-2,-1),(-2,0),(-2,1),(-2,2),] # 5*5, Hard
-
-# SHAPES6["King"]=[(0,0),(0,1),(0,-1),(1,0),(-1,0),(0,2),(0,-2),(-1,-2),(1,-2),(-1,2),(1,2)] # Very Hard
-# SHAPES6["GiantO7p7"]=[(0,-3),(0,-2),(0,-1),(0,0),(0,1),(0,2),(0,3),
-#               (1,-3),(1,-2),(1,-1),(1,0),(1,1),(1,2),(1,3),
-#               (2,-3),(2,-2),(2,-1),(2,0),(2,1),(2,2),(2,3),
-#               (3,-3),(3,-2),(3,-1),(3,0),(3,1),(3,2),(3,3),
-#               (-1,-3),(-1,-2),(-1,-1),(-1,0),(-1,1),(-1,2),(-1,3),
-#               (-2,-3),(-2,-2),(-2,-1),(-2,0),(-2,1),(-2,2),(-2,3),
-#               (-3,-3),(-3,-2),(-3,-1),(-3,0),(-3,1),(-3,2),(-3,3),] # 7*7, Very Hard
-
-# SHAPES = {
-    # "Dots4v2":[(1,0),(-1,0),(0,-1),(0,1)], # Very Hard
-
-    # "BigAdd":[(0,0),(0,1),(0,2),(0,-1),(0,-2),(1,0),(2,0),(-1,0),(-2,0)], # Super Hard
-    
-    # "King":[(0,0),(0,1),(0,-1),(1,0),(-1,0),(0,2),(0,-2),(-1,-2),(1,-2),(-1,2),(1,2)], # Very Hard
-    # "Num5":[(0,0), (1,1),(-1,-1),(1,0),(-1,0), (0,2),(0,-2),(-1,-2),(1,-2),(-1,2),(1,2)], # Super Hard
-    
-    # "GiantO7p7":[(0,-3),(0,-2),(0,-1),(0,0),(0,1),(0,2),(0,3),
-    #           (1,-3),(1,-2),(1,-1),(1,0),(1,1),(1,2),(1,3),
-    #           (2,-3),(2,-2),(2,-1),(2,0),(2,1),(2,2),(2,3),
-    #           (3,-3),(3,-2),(3,-1),(3,0),(3,1),(3,2),(3,3),
-    #           (-1,-3),(-1,-2),(-1,-1),(-1,0),(-1,1),(-1,2),(-1,3),
-    #           (-2,-3),(-2,-2),(-2,-1),(-2,0),(-2,1),(-2,2),(-2,3),
-    #           (-3,-3),(-3,-2),(-3,-1),(-3,0),(-3,1),(-3,2),(-3,3),], # 7*7, Very Hard
-# }
-
-Rotate = { # 可以旋转：True, 不能旋转：False
-    "Small": False, 
-    "Small2": False, 
-    "Boom": False, 
-    
-    "I1p2": True,
-    "Dots2" : True,
-    "Dots2v2" : True,
-
-    "I1p3": True,
-    "Corner": True,
-
-    "O": False, 
-    "S": True,
-    "T": True,
-    "I": True,
-    "L": True,
-    "J": True,
-    "Z": True,
-    "Dots4": False, 
-    "Dots4v2": False, 
-
-    "Add": False, 
-    "AddBoom": False, 
-
-    "I1p6": True,
-    "I2p3": True,
-    "F": True,
-    
-    "BigT": True,
-    "H": True,
-
-    "O3p3": False,
-    "BigAdd": False,
-
-    "King": True,
-    "Num5": True,
-
-    "O4p4" : False,
-
-    "O5p5": False,
-
-    "GiantO7p7": False,
-}
-
-# 定义各种形状的颜色
-SHAPESCOLOR = {
-    "Small": "#0011CC", # 蓝色
-    "Small2": "#004499", # 深蓝绿
-    "Boom":"#DD0000", # 红色
-    
-    "I1p2": "#AACC66", # 草绿色
-    "Dots2" : "green", 
-    "Dots2v2" : "#00AA11",
-
-    "I1p3": "#8899FF", # 浅蓝色
-    "Corner": "#EE8877", # 砖红色
-
-    "O": "#d25b6a",
-    "S": "#d2835b",
-    "T": "#e5e234",
-    "I": "#83d05d",
-    "L": "#2862d2",
-    "J": "#35b1c0",
-    "Z": "#5835c0",
-    "Dots4":"#333333", # 黑灰
-    "Dots4v2":"#777777",
-
-    "Add": "#666666", # 灰色
-    "AddBoom": "#880088", # 紫色
-
-    "I1p6": "#004411", # 深绿色
-    "I2p3": "#992244", # 红色
-    "F": "black", 
-    
-    "BigT":"#CC0088", # 紫色
-    "H":"#AAAA22", # 土黄色
-
-    "O3p3":"#004488", # 深蓝色
-    "BigAdd":"#884400", # 棕色
-
-    "King":"#FFFF66", # 金色
-    "Num5":"#336633", # 深绿色
-
-    "O4p4" : "#AA0000", # 红色
-
-    "O5p5":"#701010", # 深红色
-
-    "GiantO7p7":"#500000", # 暗红色
-}
-    # "#FF4499", # 粉色
-    # "#FF88AA", # 浅粉色
-    # "black", 
-    # "#FF2277", # 粉色
-    # "#664433", # 棕色
-    # "#AA7744", # 浅棕色
-    # "#FF7744", # 深橙色
-    # "#CCDDFF", # 很浅的蓝色
-    # "I": "#007777", # 深蓝绿色 
-    # "I2": "#009999", # 蓝绿色
-    # "I3": "#00AAAA", # 稍浅蓝绿色
-    # "I4": "#00BBBB", # 浅蓝绿色
-    # "O": "blue", # 亮蓝色
-    # "S": "red",
-    # "T": "yellow", # 金黄色
-    # "L": "purple",
-    # "J": "orange",
-    # "Z": "Cyan", # 亮青色
-
-
-
+Rotate = shapes.Rotate
+SHAPESCOLOR = shapes.SHAPESCOLOR
 
 def draw_cell_by_cr(c, r, color="#CCCCCC", tag_kind=""):
+    # return #
     """
     :param canvas: 画板，用于绘制一个方块的Canvas对象
     :param c: 方块所在列
@@ -292,6 +124,8 @@ def draw_board(isFirst=False):
     for ri in range(R):
         for ci in range(C):
             cell_type = block_list[ri][ci]
+            if cell_type=='Boss': 
+                continue # Boss方块不用绘制
             if cell_type:
                 draw_cell_by_cr(ci, ri, SHAPESCOLOR[cell_type], tag_kind="row")
             elif isFirst:
@@ -324,6 +158,9 @@ def draw_cells(c, r, cell_list, color="#CCCCCC"):
     
     
 def draw_block_move(block, direction=[0, 0]):
+    #
+    # print("draw_block_move") # 
+
     """
     绘制向指定方向移动后的俄罗斯方块
     :param canvas: 画板
@@ -350,29 +187,29 @@ def draw_block_move(block, direction=[0, 0]):
 
 
 def draw_vertical_line(ci): # 
-    cr = [ci, 0]
-    kind = 'Boom'
-    block = {
-        'kind': kind,  # 对应俄罗斯方块的类型
-        'cell_list': SHAPES6[kind], # 方块列表
-        'cr': cr # 中心点的行列
-    }
-    color = SHAPESCOLOR[block['kind']]
+    color = SHAPESCOLOR['Boom'] # 
 
     if ci==0:
         for i in range(0,R):
-            draw_cell_by_cr(ci,i,color) # 变红
+            if block_list[i][ci]!='Boss':
+                draw_cell_by_cr(ci,i,color) # 变红
     elif ci<C:
         for i in range(0,R):
-            draw_cell_by_cr(ci,i,color) # 变红
-            draw_cell_by_cr(ci-1,i) # 变灰
+            if block_list[i][ci]!='Boss':
+                draw_cell_by_cr(ci,i,color) # 变红
+            if block_list[i][ci-1]!='Boss':
+                draw_cell_by_cr(ci-1,i) # 变灰
     else: # ci==C
         for i in range(0,R):
-            draw_cell_by_cr(ci-1,i) # 变灰
+            if block_list[i][ci-1]!='Boss':
+                draw_cell_by_cr(ci-1,i) # 变灰
 
 
 def generate_new_block():
-    shapes = [None, SHAPES1, SHAPES2, SHAPES3, SHAPES4, SHAPES5, SHAPES6]
+    #
+    # print("generate_new_block") #
+
+    shapes = [None, SHAPES1, SHAPES2, SHAPES3, SHAPES4, SHAPES5, SHAPES6, SHAPES7]
     shape_now = SHAPES1
 
     global level_now
@@ -444,13 +281,65 @@ def check_row_complete(row):
     return True
 
 
-def draw_label():
-    global score, level_now, revive_num, next_block_kind, skill_point
-    label.config(text = "得分{} 关卡{} 下一个{}\n复活次数{} 技能点数{}"
-                 .format(score, level_now, next_block_kind, revive_num, skill_point))
+def draw_label(paused = False):
+    global score, level_now, revive_num, next_block_kind, skill_point, boss_hp
+    text = "得分{} 关卡{} 下一个{}\n复活次数{} 技能点数{}".format(score, level_now, next_block_kind, revive_num, skill_point)
+    
+    if level_now==7:
+        text = text + " Boss血量{}".format(boss_hp)
+    if paused: # 正在暂停
+        text = text + "\n暂停中，按p键继续游戏"
+    
+    # print("text =", text) #
+    label.config(text=text) # 
+
+
+def show_boss_die():
+    global image_tk
+
+    # 缩小图片
+    new_width = 8 * cell_size
+    new_height = 4 * cell_size
+    resized_image = image_die.resize((new_width, new_height))
+    # 转换为Tkinter对象
+    image_tk = ImageTk.PhotoImage(resized_image)  
+    # 位置
+    x = 3 * cell_size
+    y = (R-4) * cell_size + 5 # 
+    # 在指定位置绘制图片
+    canvas.create_image(x,y, image=image_tk,anchor='nw')
+
+
+def show_boss():
+    global canvas
+    global image, cell_size, image_tk # 调用全局变量
+
+    for i in range(R-3,R-5,-1):
+        for j in range(4, 10):
+            block_list[i][j] = 'Boss'
+    for i in range(R-1,R-3,-1):
+        for j in range(3, 11):
+            block_list[i][j] = 'Boss'
+
+    # 缩小图片
+    new_width = 8 * cell_size
+    new_height = 4 * cell_size
+    resized_image = image.resize((new_width, new_height))
+
+    # 转换为Tkinter对象
+    image_tk = ImageTk.PhotoImage(resized_image)  
+
+    # 位置
+    x = 3 * cell_size
+    y = (R-4) * cell_size + 5 # 
+    # 在指定位置绘制图片
+    canvas.create_image(x,y, image=image_tk,anchor='nw')
 
 
 def check_level(): # 更新当前所在的关卡
+    #
+    # print("check_level")
+
     global score, fps, level_now, level_old
     len1=len(level_score)
     for i in range(len1-1,-1,-1): # 
@@ -464,6 +353,8 @@ def check_level(): # 更新当前所在的关卡
         if level_now%3==0: # 到达3的倍数关
             global skill_point
             skill_point += 1 # 多一个技能点
+        if level_now==7: # 到达boss关
+            show_boss() # 
 
 
 
@@ -477,6 +368,7 @@ def update_score(cnt):
 
 
 def boom_clear(block):
+    global boss_hp
     c,r = block['cr']
     cnt=0
     for i in range(-1,2):
@@ -487,16 +379,20 @@ def boom_clear(block):
                 continue 
             if dc<0 or dc>=C: # C=列数
                 continue 
-
+            
             if(block_list[dr][dc]!=''): # 
-                block_list[dr][dc]='' # 消除
+                if  block_list[dr][dc]=='Boss': # 击中boss方块
+                    boss_hp -= 1 # 造成伤害
+                else:
+                    block_list[dr][dc]='' # 消除
                 cnt+=1
     
     update_score(cnt)
-    # draw_board() # 重新绘制
+    check_boss_hp()
 
 
 def addBoom_clear(block):
+    global boss_hp
     c,r = block['cr']
     cnt=0
     for i in range(-1,2):
@@ -505,7 +401,10 @@ def addBoom_clear(block):
             if dc<0 or dc>=C: # C=列数
                 continue 
             if(block_list[j][dc]!=''): # 
-                block_list[j][dc]='' # 消除
+                if  block_list[j][dc]=='Boss': # 击中boss方块
+                    boss_hp -= 1 # 造成伤害
+                else:
+                    block_list[j][dc]='' # 消除
                 cnt+=1
 
     for i in range(-1,2):
@@ -514,28 +413,37 @@ def addBoom_clear(block):
             if dr<0 or dr>=R: # R=行数
                 continue 
             if(block_list[dr][j]!=''): # 
-                block_list[dr][j]='' # 消除
+                if  block_list[dr][j]=='Boss': # 击中boss方块
+                    boss_hp -= 1 # 造成伤害(特性：卡在角落时，可以对角落的boss方块造成两次伤害)
+                else:
+                    block_list[dr][j]='' # 消除
                 cnt+=1
 
     update_score(cnt)
-    # draw_board() # 重新绘制
+    check_boss_hp()
 
 
 def check_and_clear():
+    global score, boss_hp
+
     has_complete_row = False
     # 连续消除得分更高
     score1=10 # 可以增加的分
-    for ri in range(len(block_list)):
+    for ri in range(0,len(block_list)):
         if check_row_complete(block_list[ri]):
             has_complete_row = True
             # 当前行可消除
-            if ri > 0:
-                for cur_ri in range(ri, 0, -1):
-                    block_list[cur_ri] = block_list[cur_ri-1][:]
-                block_list[0] = ['' for j in range(C)]
-            else:
+            if ri > 0: # 不在最顶上
+                for j in range(0, C):
+                    if block_list[ri][j]=='Boss': # boss方块
+                        boss_hp -= 1 # boss扣血
+                    else: # 普通方块
+                        for cur_ri in range(ri, 0, -1):
+                            block_list[cur_ri][j]=block_list[cur_ri-1][j] # 上面的掉下来
+                        block_list[0][j]=''
+            else: # ri==0,最顶上
                 block_list[ri] = ['' for j in range(C)]
-            global score
+
             score += score1 # 得分增加
             score1 += 10 # 连续消除得分：10,20,30,40,...
             # 消除1行：10分, 消除2行：30分, 
@@ -545,6 +453,7 @@ def check_and_clear():
         check_level() # 更新当前关卡
         draw_board() # 重新绘制
         draw_label()
+        check_boss_hp() # 
 
 
 def save_block_to_list(block):
@@ -664,10 +573,23 @@ def revive(): # 复活
     revive_num-=1
     draw_board() # 重新绘制
     draw_label()
+    if level_now==7: # 正在boss关
+        show_boss() # 重新绘制boss，避免显示bug
 
+
+def check_boss_hp():
+    global boss_hp
+    if boss_hp<=0: # 击败boss
+        show_boss_die() # 
+        draw_label()
+        messagebox.showinfo("游戏胜利！", "最终得分：%s分" % score)
+        init()
+        return True
+    
+    return False
 
 def game_loop():
-    global skill_using, fall_ci, fps, oldfps, canvas, vis, visold
+    global skill_using, fall_ci, fps, oldfps, canvas, vis, visold, boss_hp, win
 
     if skill_using: # 正在使用技能
         if fall_ci<=C: # 
@@ -675,12 +597,19 @@ def game_loop():
             fall_ci += 1
             win.after(fps, game_loop) # 
             return
-        else:
+        else: # 技能释放结束
             fps = oldfps
-            skill_using = False # 技能释放结束
+            skill_using = False # 标记技能释放结束
             canvas.destroy() # 删除原有canvas
             canvas = create_canvas() # 新建canvas
             draw_board(True) # 第一次绘制
+            check_level() # 更新关卡
+            if level_now==7: # 正在boss关
+                show_boss()
+                boss_hp -= 12 # 造成12点伤害 
+                if check_boss_hp(): # 如果击败boss
+                    return # 退出
+
             vis = [0 for i in range(C)]
             visold = [1 for i in range(C)]
             draw_bottom() # 更新底部指示条
@@ -689,18 +618,22 @@ def game_loop():
         win.after(fps, game_loop) # 
         return  
     
-    win.update()
+    try:
+        win.update()
+    except:
+        print("ERROR when win.update()")
+
     global current_block
     if current_block is None:
         new_block = generate_new_block()
         
         if skill_using: # 正在使用技能
-            # 清屏
+            # 清屏(除了boss)
             global block_list
-            block_list = []
-            for i in range(R):
-                i_row = ['' for j in range(C)]
-                block_list.append(i_row)
+            for i in range(0, R):
+                for j in range(0,C):
+                    if block_list[i][j]!='Boss':
+                        block_list[i][j]=''
 
             # 播放动画
             oldfps = fps
@@ -723,7 +656,7 @@ def game_loop():
                 init()
                 return
             else: # revive_num>=1
-                revive()
+                revive() # 复活
                 
     else:
         if check_move(current_block, [0, 1]):
@@ -762,15 +695,8 @@ def closing_win():
 def pause():
     global is_paused
     is_paused = not is_paused # 更新暂停状态
-
-    if is_paused: # 暂停
-        global score, level_now, revive_num, next_block_kind
-        label.config(text = "得分{} 关卡{} 下一个{}\n复活次数{} 技能点数{}\n暂停中，按p键继续游戏"
-                 .format(score, level_now, next_block_kind, revive_num, skill_point)) # p
+    draw_label(is_paused) # 更新标题
         
-    else: # 继续
-        draw_label()
-
 
 def use_skill(): # 
     global next_block_kind
@@ -807,12 +733,10 @@ def press_key(event):
                 skill()
 
 
-# def clear_canvas():
+def create_canvas(): # 
+    canvas = tk.Canvas(win, width=width, height=height) # 
 
-def create_canvas():
-    canvas = tk.Canvas(win, width=width, height=height)
     canvas.pack()
-    check_level() # 更新关卡
     draw_label() # 更新label，标题中展示分数和关卡
     canvas.focus_set() # 聚焦到canvas画板对象上
     canvas.bind("<KeyPress-Left>", horizontal_move_block)
@@ -821,11 +745,26 @@ def create_canvas():
     canvas.bind("<KeyRelease-Up>", on_up_key_release) # 
     canvas.bind("<KeyPress-Down>", land)
     canvas.bind("<KeyPress>", press_key) # 
+
     return canvas
 
 
-def create_win():
+def create_win(): # 
+    global win #
+    if win: # 已有窗口
+        try:
+            win.quit() #
+        except:
+            print("ERROR when win.quit()")
+
     win = tk.Tk() # 游戏界面
+    # win = Toplevel(root) # 
+    win.focus_set() # 设置焦点
+
+    x = Window_X
+    y = Window_Y
+    win.geometry(f'+{x}+{y}') # 设置窗口位置
+
     win.title("俄罗斯方块")
     win.protocol("WM_DELETE_WINDOW", closing_win) # 
 
@@ -836,7 +775,9 @@ def create_win():
     label.pack(side='top', anchor='w') # 上面，向左对齐
 
     canvas = create_canvas() # 新建canvas
+
     draw_board(True) # 第一次绘制
+    check_level() # 更新关卡
 
     win.update()
     win.after(fps, game_loop) # 在fps 毫秒后调用 game_loop方法
@@ -848,7 +789,9 @@ def main():
     global win
     root.quit()  # 退出事件循环
     root.destroy()
+
     win = create_win()
+
     test_use2() # 测试用
     
     global change_eng_input
@@ -856,7 +799,7 @@ def main():
         change_eng_input = True # 已切换英文
         switch_input()
 
-    win.mainloop()
+    win.mainloop() # 
 
 
 def open_link():
@@ -869,13 +812,22 @@ def create_root():
     root.protocol("WM_DELETE_WINDOW", closing_root)
 
     # 获取屏幕的高度
+    screen_width = root.winfo_screenheight()
     screen_height = root.winfo_screenheight()
 
     # 设置界面大小
     global width
     root_width = width
-    root_height = screen_height//3
+    root_height = screen_height//2 -75 # 
     root.geometry(f"{root_width}x{root_height}")
+
+    x = Window_X
+    y = Window_Y+50
+    root.geometry(f'+{x}+{y}') # 设置窗口位置
+
+    text_rule = '\n游戏规则：填满一行即消除，堆满方块则失败。\n\n操作：左右键移动，上键旋转，下键快速下落，\np键暂停，o键释放技能。\n'
+    label_rule = tk.Label(root, text=text_rule, font=('黑体', 13))
+    label_rule.pack() # 
 
     # 计算按钮的位置
     button_width = 150
@@ -885,22 +837,37 @@ def create_root():
 
     button = tk.Button(root, text="开始游戏", font=('黑体', 20), command=main) # 创建按钮
     button.place(x=button_x, y=button_y, width=button_width, height=button_height) # 
+    button.pack() #
 
-    text_rule = '\n游戏规则：填满一行即消除，堆满方块则失败。\n\n操作：左右键移动，上键旋转，下键快速下落，\np键暂停，o键释放技能。'
-    label_rule = tk.Label(root, text=text_rule, font=('黑体', 13))
-    label_rule.pack() # 
 
     label_web = tk.Label(root, text='俄罗斯方块-项目链接', fg='blue', cursor='hand2')
     label_web.pack(side='bottom', anchor='s') # 放在底部
     label_web.bind('<Button-1>', lambda e: open_link())
 
-    root.deiconify() # 显示开始界面
+
+    # draw image
+    global image_tk
+    canvas_root = Canvas(root, width=500, height=600)
+    canvas_root.pack()
+
+    # 缩小图片
+    new_width = 8 * cell_size
+    new_height = 4 * cell_size
+    resized_image = image.resize((new_width, new_height))
+    image_tk = ImageTk.PhotoImage(resized_image)  # 转换为Tkinter对象
+    
+    # 位置
+    x = 3 * cell_size
+    y = 50
+    canvas_root.create_image(x, y, image=image_tk, anchor='nw') # 绘制图像
+
     return root 
 
 
-def init(first = False):
+def init(first = False): # 初始化
     global level_now, level_old, fps, oldfps, score, current_block, next_block_kind, revive_num
-    global block_list, win, root, vis, visold, is_up_key_pressed, is_paused, skill_point, skill_using, fall_ci
+    global block_list, win, root, vis, visold, is_up_key_pressed
+    global is_paused, skill_point, skill_using, fall_ci, boss_hp
 
     level_now = 1 # 关卡数
     level_old = 1
@@ -921,6 +888,7 @@ def init(first = False):
     skill_point = 1 # 技能点数
     skill_using = False
     fall_ci = 0
+    boss_hp = 300
 
     test_use() # 测试用
 
@@ -942,11 +910,12 @@ def test_use2(): # 测试用
     #     "I1p6": [(0,3),(0,2),(0,1),(0,0),(0,-1),(0,-2)], # 1*6
     # }
 
-def test_use(): # 测试用
-    global score, revive_num, skill_point
-    # score = 599 # 直接改初始score 
-    # revive_num = 0 # 直接改复活次数
-    # skill_point = 999 # 直接改技能点
+def test_use(): # 测试用, 直接改数据
+    global score, revive_num, skill_point, boss_hp
+    # score = 2000 # 直接改初始score 
+    # revive_num = 999 # 直接改复活次数
+    # skill_point = 999 # 直接改初始技能点
+    # boss_hp = 1 # 300 # 改boss血量
 
 
 if __name__ == "__main__":
