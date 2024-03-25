@@ -12,9 +12,10 @@
 4. 新增主动技能"清屏": 消耗1个技能点，释放技能清屏。每3关获得1个技能点。  
 5. 更新了得分规则，一次性消除多行方块时得分更高。
 6. 顶部标签提示下一个方块，底部指示条提示下落位置。   
-7. 新增开始界面。
+7. 新增开始界面，优化和美化了界面。
 8. 新增暂停功能。
 9. 优化了运行性能，修复了已知的bug。
+10. 添加了背景音乐。   
 
  
 ## 参考项目
@@ -22,6 +23,6 @@
 
 
 ## 运行截屏
-<img src="pic/pic5-1563skill.png" width="30.5%"> <img src="pic/pic7v2_2083.png" width="30%">
+<img src="project/pic_show/play/win4.0.png" width="30%"><img src="project/pic_show/play/win4.1.png" width="30%"><img src="project/pic_show/play/skill.gif" width="30%"> 
 
 
