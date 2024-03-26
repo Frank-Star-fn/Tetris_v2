@@ -9,12 +9,15 @@ import time
 from PIL import Image, ImageTk
 from tkinter import Canvas, Tk
 import pygame
+import ctypes
 
 import shapes
 import explode_ani
 import music
 
 # 常量定义
+# FONT_STYLE = ("Helvetica", 12)
+
 BG_COLOR = "lightblue"
 BTN_COLOR = "#AADDFF"
 
@@ -66,11 +69,12 @@ boss_hp_old = boss_hp
 image_id = 0
 left_turn = 30 # 剩余回合数
 is_game_over = False
+back_to_root = False # 返回
 
 # 从第二局开始，不用初始化的全局变量
 change_eng_input = False # 未切换英文输入法
-
-
+is_first_game = True
+root_img_id = 0
 
 # 加载图片
 road = r"boss_pic\boss_stage1.png"
@@ -663,6 +667,7 @@ def change_boss_stage(stage_id): #
 
     if image_id!=0:
         canvas.delete(image_id) # 清除之前的图片
+
     image_id = canvas.create_image(x,y, image=image_tk,anchor='nw') # 绘制图片
 
 
@@ -696,6 +701,16 @@ def game_over(win = False):
 
 
 def game_loop():
+    # print("game_loop") #
+    global change_eng_input
+    if change_eng_input==False:
+        change_eng_input = True # 已切换英文
+        switch_input()
+
+    if back_to_root: # 返回主界面
+        init()
+        return
+
     if music.music_on:
         for event in pygame.event.get(): # 处理事件队列
             if event.type == pygame.USEREVENT:
@@ -800,22 +815,28 @@ def game_loop():
                 
     win.after(fps, game_loop)
 
-def switch_input(): # 模拟按下Shift键+Alt键来切换输入法
+def switch_input(): # 切换输入法
+    ctypes.windll.user32.LoadKeyboardLayoutW("00000409", 1)  # 英文（美国）输入法的键盘布局代码为 "00000409"
+
+def switch_input_back(): # 切换回来
     pyautogui.keyDown('shift')
     pyautogui.press('alt')
     pyautogui.keyUp('shift')
+
 
 def closing_root():
     root.quit()  # 退出事件循环
     root.destroy()  # 关闭窗口
     if change_eng_input:
-        switch_input()
+        switch_input_back()
 
-def closing_win():
+def closing_win(): # 
     win.quit()  # 退出事件循环
     win.destroy()  # 关闭窗口
+    root.quit()  # 退出事件循环
+    root.destroy()  # 关闭窗口
     if change_eng_input:
-        switch_input()
+        switch_input_back()
 
 def pause():
     global is_paused
@@ -871,6 +892,13 @@ def create_canvas(): #
 
     return canvas
 
+def back_root():
+    confirm = messagebox.askyesno("确认", "返回主界面会丢失本局游戏的进度，确认返回吗？")
+    if confirm:
+        # print("返回主界面") #
+        global back_to_root
+        back_to_root = True
+
 
 def create_win(): # 
     global win #
@@ -880,7 +908,8 @@ def create_win(): #
         except:
             print("ERROR when win.quit()")
 
-    win = tk.Tk() # 游戏界面
+    win = tk.Toplevel(root) # 游戏界面
+
     win.geometry(f"{width+100}x{height+90}") # 设置大小
     win.configure(bg=BG_COLOR) # 
 
@@ -888,15 +917,13 @@ def create_win(): #
     win_frame = tk.Frame(win, bg=BG_COLOR)
 
 
-
-    # win = Toplevel(root) # 
-    win.focus_set() # 设置焦点
+    # win.focus_set() # 设置焦点
 
     x = Window_X
     y = Window_Y
     win.geometry(f'+{x}+{y}') # 设置窗口位置
 
-    win.title("俄罗斯方块")
+    win.title("俄罗斯方块闯关版")
     win.protocol("WM_DELETE_WINDOW", closing_win) # 
 
     global label, canvas
@@ -905,15 +932,14 @@ def create_win(): #
 
     label_font = font.Font(size=15) # 
     label.configure(font=label_font)
-    # label.pack(side='top', anchor='w') # 上面，向左对齐
     label.pack(side="left")
 
-    # 创建一个播放音乐的按钮
-    play_button2 = tk.Button(win_frame, text="播放\n音乐", bg=BTN_COLOR, command=music.play_random_music)
-    # play_button2.pack(side=tk.RIGHT, padx=(0, 18)) # 设置右侧间隔
+    # 返回按钮
+    back_button =  tk.Button(win_frame, text="返回", bg=BTN_COLOR, command=back_root)
+    back_button.pack(side="right")
 
-    # play_button2.pack(anchor="ne", padx=(0, 18), pady = 10) # 
-    # play_button2.pack(side="left")
+    # 创建一个播放音乐的按钮
+    play_button2 = tk.Button(win_frame, text="音乐", bg=BTN_COLOR, command=music.play_random_music)
     play_button2.pack(side="right")
 
     # 将框架放置在界面上
@@ -925,6 +951,7 @@ def create_win(): #
     draw_board(True) # 第一次绘制
     check_level() # 更新关卡
 
+    #
     win.update()
     win.after(fps, game_loop) # 在fps 毫秒后调用 game_loop方法
     
@@ -932,35 +959,47 @@ def create_win(): #
 
 
 def main():
-    global win
-    root.quit()  # 退出事件循环
-    root.destroy()
+    # global change_eng_input
+    # if change_eng_input==False:
+    #     change_eng_input = True # 已切换英文
+    #     # switch_input()
 
-    win = create_win()
+    global win
+    win = create_win() # 创建游戏界面
+    root.withdraw() # 隐藏开始界面
 
     test_use2() # 测试用
-    
-    global change_eng_input
-    if change_eng_input==False:
-        change_eng_input = True # 已切换英文
-        switch_input()
-
     win.mainloop() # 
 
 
 def open_link():
     webbrowser.open('https://github.com/Frank-Star-fn/Tetris_v2')
 
+def draw_root_image():
+    global image_tk, canvas_root
+    # 缩小图片
+    new_width = 8 * cell_size
+    new_height = 4 * cell_size
+    resized_image = image.resize((new_width, new_height))
+    image_tk = ImageTk.PhotoImage(resized_image)  # 转换为Tkinter对象
+    # 位置
+    x = 3 * cell_size
+    y = 10 # 
+    global root_img_id
+    if root_img_id:
+        canvas_root.delete(root_img_id) # 清除之前的图片
+
+    root_img_id = canvas_root.create_image(x, y, image=image_tk, anchor='nw') # 重新绘制图像
+
+
 def create_root():
     global root 
     root = tk.Tk()
-    root.title("俄罗斯方块")
+    root.title("俄罗斯方块闯关版")
     root.protocol("WM_DELETE_WINDOW", closing_root)
     root.configure(bg=BG_COLOR) # 
 
-    # 获取屏幕的高度
-    screen_width = root.winfo_screenheight()
-    screen_height = root.winfo_screenheight()
+    screen_height = root.winfo_screenheight() # 获取屏幕的高度
 
     # 设置界面大小
     global width
@@ -993,26 +1032,16 @@ def create_root():
     play_button = tk.Button(root, text="播放/停止音乐", bg=BTN_COLOR, command=music.play_random_music)
     play_button.pack(side=tk.TOP, pady=10)
 
-    label_web = tk.Label(root, text='俄罗斯方块-项目链接', fg='blue', cursor='hand2', bg=BG_COLOR)
+    label_web = tk.Label(root, text='项目链接', fg='blue', cursor='hand2', bg=BG_COLOR)
     label_web.pack(side='bottom', anchor='s') # 放在底部
     label_web.bind('<Button-1>', lambda e: open_link())
 
-
-    # draw image
-    global image_tk
+    global canvas_root
     canvas_root = Canvas(root, width=500, height=550, highlightthickness=0, bg=BG_COLOR)
     canvas_root.pack()
 
-    # 缩小图片
-    new_width = 8 * cell_size
-    new_height = 4 * cell_size
-    resized_image = image.resize((new_width, new_height))
-    image_tk = ImageTk.PhotoImage(resized_image)  # 转换为Tkinter对象
-    
-    # 位置
-    x = 3 * cell_size
-    y = 10 # 
-    canvas_root.create_image(x, y, image=image_tk, anchor='nw') # 绘制图像
+    # draw root image
+    draw_root_image()
 
     return root 
 
@@ -1020,7 +1049,7 @@ def create_root():
 def init(first = False): # 初始化
     global level_now, level_old, fps, oldfps, score, current_block, next_block_kind, revive_num
     global block_list, win, root, vis, visold, is_up_key_pressed
-    global is_paused, skill_point, skill_using, fall_ci, boss_hp, boss_hp_old, image_id, left_turn, is_game_over
+    global is_paused, skill_point, skill_using, fall_ci, boss_hp, boss_hp_old, image_id, left_turn, is_game_over, back_to_root
 
     level_now = 1 # 关卡数
     level_old = 1
@@ -1046,6 +1075,7 @@ def init(first = False): # 初始化
     image_id = 0
     left_turn = 30
     is_game_over = False
+    back_to_root = False
 
     test_use() # 测试用
 
@@ -1055,9 +1085,14 @@ def init(first = False): # 初始化
             win.destroy()  # 关闭窗口
         except:
             print("Error in operating interface") 
+        
+        root.deiconify() # 显示
+        draw_root_image() # 绘制root的背景图
 
-    root = create_root() # 主循环
-    root.mainloop() # 启动主循环
+
+    else: # 第一次初始化
+        root = create_root() # 主循环
+        root.mainloop() # 启动主循环
 
 
 def test_use2(): # 测试用
