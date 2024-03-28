@@ -11,7 +11,7 @@
 3. 新增被动技能"复活": 死亡时，消耗1次复活次数，清除上半屏幕并继续游戏。
 4. 新增主动技能"清屏": 消耗1个技能点，释放技能清屏。每3关获得1个技能点。  
 5. 更新了得分规则，一次性消除多行方块时得分更高。
-6. 顶部标签提示下一个方块，底部指示条提示下落位置。   
+6. 右侧提示下一个方块，底部指示条提示下落位置。   
 7. 新增开始界面和返回按钮，优化和美化了界面。
 8. 新增暂停功能。
 9. 优化了运行性能，修复了已知的bug。
@@ -23,6 +23,6 @@
 
 
 ## 运行截屏
-<img src="project/pic_show/play/win6.2.png" width="30%"><img src="project/pic_show/play/skill.gif" width="30%"><img src="project/pic_show/play/win5.01.png" width="30%">
+<img src="project/pic_show/play/win7.0.png" width="30%"><img src="project/pic_show/play/win7.5.png" width="30%"><img src="project/pic_show/play/skill.gif" width="23.5%">
 
 
