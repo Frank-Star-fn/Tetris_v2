@@ -25,6 +25,6 @@
 
 
 ## 运行截屏
-<img src="project/pic_show/play/win7.0.png" width="30%"><img src="project/pic_show/play/win7.5.png" width="30%"><img src="project/pic_show/play/skill.gif" width="23.5%">
+<img src="project/pic_show/play/win12.2.png" width="30%"><img src="project/pic_show/play/win11.5.png" width="30%"><img src="project/pic_show/play/skill.gif" width="23.5%">
 
 
