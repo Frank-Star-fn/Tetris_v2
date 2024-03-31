@@ -1,9 +1,7 @@
 # Tetris_v2
 俄罗斯方块闯关版，基于Python实现
 
-游戏下载链接：https://pan.baidu.com/s/1PZ4joGtebAQPD6Jec4DTLg?pwd=bzmo 
-
-提取码：bzmo
+[效果展示视频](https://www.bilibili.com/video/BV1Pf421f7x6/) ， [游戏下载链接](https://pan.baidu.com/s/1PZ4joGtebAQPD6Jec4DTLg?pwd=bzmo)
 
 ## 改进
 
