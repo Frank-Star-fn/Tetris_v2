@@ -1,6 +1,10 @@
 # Tetris_v2
 俄罗斯方块闯关版，基于Python实现
 
+游戏下载链接：https://pan.baidu.com/s/1PZ4joGtebAQPD6Jec4DTLg?pwd=bzmo 
+
+提取码：bzmo
+
 ## 改进
 
 1. 设计了若干关卡，达到一定的分数自动进入下一关。越后面的关卡下落速度越快，出现的方块越难消除。在最后一关设计了一个Boss，Boss有多个阶段。
